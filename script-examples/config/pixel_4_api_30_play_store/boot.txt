@@ -1,0 +1,12 @@
+#####
+# EXECUTE ON PIXEL 4 / ANDROID API LEVEL 30 WITH PLAY STORE EMULATOR
+#####
+
+wait_for_emulator_boot
+
+echo
+echo Open SplatNet3
+echo '##############'
+echo
+
+open_splatnet3

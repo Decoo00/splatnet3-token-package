@@ -1,0 +1,26 @@
+import json
+
+
+class S3sConfig:
+	"""Config class for json serialization of s3s configuration"""
+
+	def __init__(self,
+				 gtoken='{GTOKEN}',
+				 bullettoken='{BULLETTOKEN}',
+				 session_token='skip',
+				 api_key='INSERT_STAT_INK_API_KEY_HERE',
+				 acc_loc='{APPLANGUAGE}|{NACOUNTRY}',
+				 f_gen='DUMMY_VALUE'):
+		self.gtoken = gtoken
+		self.bullettoken = bullettoken
+		self.session_token = session_token
+		self.api_key = api_key
+		self.acc_loc = acc_loc
+		self.f_gen = f_gen
+
+	def to_json(self):
+		return json.dumps(
+			self,
+			default=lambda o: o.__dict__,
+			sort_keys=True,
+			indent=4)

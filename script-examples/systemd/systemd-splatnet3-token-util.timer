@@ -1,0 +1,24 @@
+# file location: /home/{USERNAME}/.config/systemd/user/splatnet3-token-util.timer
+# systemd timer which spawns the splatnet3-token-util service a minute after system boot
+# an hourly refresh is the other possible way
+# create both systemd files from example on this location and use "systemctl --user enable splatnet3-token-util.timer" to start the timer.
+# IMPORTANT: the user must be logged in for the timer to be executed
+# if the timer cannot be found, use "systemctl daemon-reload"
+
+[Unit]
+Description=Execute splatnet3-token-util
+After=graphical-session-pre.target
+PartOf=graphical-session.target
+
+[Timer]
+# boot 1 min after desktop is available
+OnStartupSec=1min
+AccuracySec=1
+
+# [Timer]
+# # alternative: boot every hour at xx:20:00
+# OnCalendar=*-*-* *:20:00
+# AccuracySec=1
+
+[Install]
+WantedBy=graphical-session.target

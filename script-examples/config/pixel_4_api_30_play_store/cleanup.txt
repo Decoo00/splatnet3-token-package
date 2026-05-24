@@ -1,0 +1,17 @@
+#####
+# EXECUTE ON PIXEL 4 / ANDROID API LEVEL 30 WITH PLAY STORE EMULATOR
+#####
+
+echo
+echo Close NSA
+echo '#########'
+echo
+
+close_nsa
+
+echo
+echo Shutdown emulator
+echo '#################'
+echo
+
+shutdown_emu
