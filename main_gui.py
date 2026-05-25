@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 import json
 import re
+import time
 
 # 우리가 만든 환경 초기화 스크립트 불러오기
 try:
@@ -73,6 +74,36 @@ class TokenExtractorGUI:
         self.btn_launch.config(state=tk.DISABLED)
         threading.Thread(target=self.launch_emulator, daemon=True).start()
 
+    def generate_avd_ini(self, avd_name="NSA"):
+        """
+        현재 패키지 폴더 위치를 기준으로 NSA.ini(표지판) 파일을 자동 생성합니다.
+        사용자의 PC 환경(경로)이 바뀌어도 알아서 맞춰줍니다.
+        """
+        # .android 폴더의 절대 경로를 구합니다.
+        avd_home = os.path.abspath(".android")
+        
+        # .android 폴더 자체가 없다면 만듭니다.
+        os.makedirs(avd_home, exist_ok=True)
+        
+        # NSA.avd 폴더(본체)와 NSA.ini 파일(표지판)의 경로 세팅
+        avd_folder = os.path.join(avd_home, f"{avd_name}.avd")
+        ini_path = os.path.join(avd_home, f"{avd_name}.ini")
+        
+        # 본체 폴더가 없다면 생성 (안에 config.ini가 들어갈 자리)
+        os.makedirs(avd_folder, exist_ok=True)
+        
+        # 🌟 NSA.ini 파일 내용 작성 (현재 PC의 정확한 절대 경로 삽입)
+        ini_content = f"""avd.ini.encoding=UTF-8
+            path={avd_folder}
+            path.rel={avd_name}.avd
+            target=android-30
+            """
+        # 파일 쓰기 (덮어쓰기 모드이므로 위치가 바뀌어도 항상 최신 경로로 갱신됨)
+        with open(ini_path, "w", encoding="utf-8") as f:
+            f.write(ini_content)
+            
+        print(f"✅ 기기 인식용 {avd_name}.ini 파일 생성 완료! (경로: {avd_folder})")
+            
     def launch_emulator(self):
         self.append_log("🤖 사용자의 무설치 SDK 환경 검증 및 가상 기기(NSA) 초기화 중...\n")
         
@@ -98,15 +129,76 @@ class TokenExtractorGUI:
             "-no-snapshot-save",
             "-gpu", "auto"
         ]
-        
+        self.generate_avd_ini()
         try:
             self.append_log("🚀 스마트폰 가상 화면(NSA)이 실행됩니다. 구글/닌텐도 로그인을 진행해주세요!\n")
-            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if self.launch_avd_with_monitoring(emulator_exe, "NSA"):
+                self.append_log("✅ 에뮬레이터가 정상적으로 실행되었습니다. 이제 2단계로 넘어가 토큰을 추출할 수 있습니다.\n")
+            else:
+                self.append_log("❌ 에뮬레이터 실행 실패: 시스템에서 요구하는 가상화 지원이 활성화되어 있는지 확인해주세요.\n")
+            # subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
             self.append_log(f"❌ 에뮬레이터 구동 에러: {e}\n")
             
         self.root.after(0, lambda: self.btn_launch.config(state=tk.NORMAL))
 
+    def launch_avd_with_monitoring(self, emulator_path, avd_name):
+        print(f"▶ AVD ({avd_name}) 실행 시도 중...")
+        
+        # 에뮬레이터 실행 명령어 조립 
+        # (EC2 환경을 고려해 -no-window나 -gpu swiftshader 같은 옵션이 붙어있을 수 있습니다)
+        cmd = [
+            emulator_path,
+            "-avd", avd_name,
+            "-no-audio"  # EC2 환경에서 오디오 에러 방지용
+        ]
+        
+        try:
+            # 🌟 중요: 에뮬레이터의 표준 출력과 에러 출력을 파이썬이 가로채도록 설정
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding='utf-8',
+                errors='ignore'
+            )
+            
+            # ⏰ 초기 안정성 감시 (5초 동안 살아있는지 체크)
+            monitoring_seconds = 5
+            for _ in range(monitoring_seconds):
+                time.sleep(1)
+                
+                # poll()이 None을 리턴하면 아직 프로세스가 살아있다는 뜻입니다.
+                if process.poll() is not None:
+                    break
+                    
+            # 🔍 상태 결과 확인
+            if process.poll() is None:
+                # 5초가 지났는데도 프로세스가 무사히 살아있다면 성공으로 간주
+                print("🟢 AVD 실행 완료! 구글/닌텐도 로그인을 진행해주세요.")
+                return True
+            else:
+                # 🔴 5초 이전에 프로세스가 죽어버린 경우 (에러 발생)
+                # stderr에 쌓인 진짜 에러 메시지를 통째로 읽어옵니다.
+                stdout_data, stderr_data = process.communicate()
+                
+                print("\n❌ [오류] AVD가 실행 직후 예기치 않게 종료되었습니다!")
+                print("===== 시스템 에러 메시지 (Emulator 로그) =====")
+                if stderr_data.strip():
+                    print(stderr_data.strip())
+                elif stdout_data.strip():
+                    print(stdout_data.strip())
+                else:
+                    print("출력된 에러 메시지가 없습니다. (메모리 부족 또는 가상화 설정 문제일 수 있습니다.)")
+                print("==============================================")
+                return False
+                
+        except Exception as e:
+            print(f"❌ 에뮬레이터 프로세스 생성 실패: {e}")
+            return False
+
+    
     def start_extract_thread(self):
         self.btn_extract.config(state=tk.DISABLED)
         threading.Thread(target=self.extract_tokens, daemon=True).start()

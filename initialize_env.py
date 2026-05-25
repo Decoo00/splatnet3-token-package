@@ -47,19 +47,22 @@ def initialize_environment():
 
     # 이미 NSA 가상기기가 만들어져 있는지 확인
     avd_ini_path = os.path.join(avd_home_dir, "NSA.ini")
+    local_avd_path = os.path.join(avd_home_dir, "NSA.avd")
+    # print("FUCK YOU", sys.platform)
     if os.path.exists(avd_ini_path):
         print(" -> ✅ 'NSA' 가상 기기가 이미 준비되어 있습니다.")
     else:
         print(" -> 📥 'NSA' 가상 기기(Pixel 4 / API 30)를 최초 생성합니다. (약 5초 소요)")
-        
         # avdmanager create avd 명령을 백그라운드로 실행
         # --force를 주어 혹시 모를 찌꺼기 파일을 덮어쓰고, 인풋 창 무시를 위해 echo "no"를 던집니다.
         cmd = [
             avd_manager_path,
             "create", "avd",
             "-n", "NSA",
-            "-k", "system-images;android-30;google_apis;x86_64" if sys.platform == "win32" else "system-images;android-30;google_apis;arm64-v8a",
+            "-k", "system-images;android-30;google_apis;x86_64", #if sys.platform == "win32" else "system-images;android-30;google_apis;arm64-v8a",
+            "--abi", "google_apis/x86_64",
             "-d", "pixel_4",
+            "--path", local_avd_path,
             "--force"
         ]
         
